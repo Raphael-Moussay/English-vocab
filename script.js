@@ -1,42 +1,23 @@
 let vocabulary = [];
 let learnedWords = [];
-let selectedLists = [];
 
-function loadVocabulary() {
-    const storedVocabulary = localStorage.getItem('vocabulary');
-    if (storedVocabulary) {
-        vocabulary = JSON.parse(storedVocabulary);
-    } else {
-        vocabulary = [
-            { title: "Fruits", words: [{english: "apple", french: "pomme"}, {english: "banana", french: "banane"}] },
-            { title: "Animaux", words: [{english: "dog", french: "chien"}, {english: "cat", french: "chat"}] },
-            { title: "Objets", words: [{english: "house", french: "maison"}, {english: "car", french: "voiture"}] },
-            { title: "Nature", words: [{english: "tree", french: "arbre"}, {english: "flower", french: "fleur"}] }
-        ];
-    }
-}
-
+// Gestion des mots appris (toujours en local)
 function loadLearnedWords() {
     const storedLearnedWords = localStorage.getItem('learnedWords');
     if (storedLearnedWords) {
         learnedWords = JSON.parse(storedLearnedWords);
     }
 }
-
-function saveVocabulary(newVocabulary) {
-    vocabulary = newVocabulary;
-    localStorage.setItem('vocabulary', JSON.stringify(vocabulary));
-}
-
 function saveLearnedWords() {
     localStorage.setItem('learnedWords', JSON.stringify(learnedWords));
 }
 
+// Filtrage des mots non appris
 function getFilteredVocabulary() {
-    // Ici, vocabulary est déjà un tableau de mots plats
     return vocabulary.filter(word => !learnedWords.find(learnedWord => learnedWord.english === word.english));
 }
 
+// Affichage d'un mot à traduire
 function getRandomWord() {
     const filteredVocabulary = getFilteredVocabulary();
     if (filteredVocabulary.length === 0) {
@@ -48,7 +29,6 @@ function getRandomWord() {
         return;
     }
     const currentWord = filteredVocabulary[Math.floor(Math.random() * filteredVocabulary.length)];
-    // On stocke le mot courant pour la validation
     window.currentWord = currentWord;
     document.getElementById('word').innerText = currentWord.french;
     document.getElementById('result').innerText = "";
@@ -58,6 +38,7 @@ function getRandomWord() {
     document.getElementById('next-button').style.display = "none";
 }
 
+// Validation de la traduction
 function validateTranslation() {
     const userTranslation = document.getElementById('translation').value.trim().toLowerCase();
     const currentWord = window.currentWord;
@@ -82,25 +63,26 @@ function validateTranslation() {
     document.getElementById('next-button').style.display = "block";
 }
 
+// Prononciation
 function speakWord(word) {
     const utterance = new SpeechSynthesisUtterance(word);
     utterance.lang = 'en-US';
     window.speechSynthesis.speak(utterance);
 }
 
-function loadVocabularyLists() {
-    const stored = localStorage.getItem('vocabularyLists');
-    if (stored) {
-        return JSON.parse(stored);
-    }
-    return [];
+// Firestore : charger toutes les listes
+async function loadVocabularyLists() {
+    const snapshot = await db.collection("vocabLists").get();
+    return snapshot.docs.map(doc => doc.data());
 }
 
-function saveVocabularyLists(lists) {
-    localStorage.setItem('vocabularyLists', JSON.stringify(lists));
+// Firestore : sauvegarder une liste
+async function saveVocabularyList(list) {
+    await db.collection("vocabLists").add(list);
 }
 
-function handleVocabInput() {
+// Ajout d'une nouvelle liste depuis le formulaire
+async function handleVocabInput() {
     const title = document.getElementById('vocab-title').value.trim();
     const vocabInput = document.getElementById('vocab-input').value.trim();
     if (!title || !vocabInput) {
@@ -113,29 +95,17 @@ function handleVocabInput() {
         return {english, french};
     }).filter(w => w.english && w.french);
 
-    let lists = loadVocabularyLists();
-    lists.push({ title, words });
-    saveVocabularyLists(lists);
+    await saveVocabularyList({ title, words });
 
     document.getElementById('vocab-title').value = '';
     document.getElementById('vocab-input').value = '';
     alert("Liste enregistrée !");
+    await renderListSelection();
 }
 
-function displayLearnedWords() {
-    const learnedWordsList = document.getElementById('learned-words');
-    learnedWordsList.innerHTML = learnedWords.map(word => `<li>${word.english} = ${word.french}</li>`).join('');
-    document.getElementById('learned-count').innerText = `Nombre de mots appris : ${learnedWords.length}`;
-}
-
-function clearLearnedWords() {
-    learnedWords = [];
-    saveLearnedWords();
-    displayLearnedWords();
-}
-
-function renderListSelection() {
-    const lists = loadVocabularyLists();
+// Affichage des listes à cocher
+async function renderListSelection() {
+    const lists = await loadVocabularyLists();
     const container = document.getElementById('list-selection');
     if (!container) return;
     if (lists.length === 0) {
@@ -153,8 +123,9 @@ function renderListSelection() {
     });
 }
 
-function getSelectedVocabulary() {
-    const lists = loadVocabularyLists();
+// Récupère tous les mots des listes cochées
+async function getSelectedVocabulary() {
+    const lists = await loadVocabularyLists();
     const checked = Array.from(document.querySelectorAll('.list-checkbox:checked')).map(cb => parseInt(cb.value));
     let words = [];
     checked.forEach(idx => {
@@ -163,12 +134,13 @@ function getSelectedVocabulary() {
     return words;
 }
 
-// Remplace loadVocabulary et getFilteredVocabulary :
-function loadVocabulary() {
-    vocabulary = getSelectedVocabulary();
+// Charge les mots sélectionnés dans la variable globale
+async function loadVocabulary() {
+    vocabulary = await getSelectedVocabulary();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+// Initialisation de la page
+document.addEventListener('DOMContentLoaded', async () => {
     if (document.getElementById('define-vocab-button')) {
         document.getElementById('define-vocab-button').addEventListener('click', () => {
             window.location.href = 'define.html';
@@ -179,36 +151,30 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.href = 'define.html';
         });
     }
-
     if (document.getElementById('learn-vocab-button')) {
         document.getElementById('learn-vocab-button').addEventListener('click', () => {
             window.location.href = 'index.html';
         });
     }
-
     if (document.getElementById('learned-words-button')) {
         document.getElementById('learned-words-button').addEventListener('click', () => {
             window.location.href = 'learned.html';
         });
     }
-
     if (document.getElementById('save-vocab-button')) {
         document.getElementById('save-vocab-button').addEventListener('click', handleVocabInput);
     }
-
     if (document.getElementById('list-selection')) {
-        renderListSelection();
-        // Charger le vocabulaire et un mot APRES avoir affiché les cases à cocher
-        loadVocabulary();
+        await renderListSelection();
+        await loadVocabulary();
         loadLearnedWords();
         getRandomWord();
 
-        document.getElementById('list-selection').addEventListener('change', () => {
-            loadVocabulary();
+        document.getElementById('list-selection').addEventListener('change', async () => {
+            await loadVocabulary();
             getRandomWord();
         });
     }
-
     if (document.getElementById('validate-button')) {
         document.getElementById('validate-button').addEventListener('click', validateTranslation);
         document.getElementById('next-button').addEventListener('click', getRandomWord);
@@ -223,13 +189,32 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-
     if (document.getElementById('learned-words')) {
         loadLearnedWords();
         displayLearnedWords();
     }
-
     if (document.getElementById('clear-learned-words-button')) {
         document.getElementById('clear-learned-words-button').addEventListener('click', clearLearnedWords);
     }
 });
+
+// (Optionnel) Fonction pour afficher les mots appris sur la page learned.html
+function displayLearnedWords() {
+    const ul = document.getElementById('learned-words');
+    const count = document.getElementById('learned-count');
+    if (!ul) return;
+    ul.innerHTML = '';
+    learnedWords.forEach(word => {
+        const li = document.createElement('li');
+        li.textContent = `${word.french} = ${word.english}`;
+        ul.appendChild(li);
+    });
+    if (count) count.textContent = `Nombre de mots appris : ${learnedWords.length}`;
+}
+
+// (Optionnel) Fonction pour vider la liste des mots appris
+function clearLearnedWords() {
+    learnedWords = [];
+    saveLearnedWords();
+    displayLearnedWords();
+}

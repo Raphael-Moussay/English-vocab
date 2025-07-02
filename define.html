@@ -6,6 +6,21 @@
     <title>Définir le Vocabulaire</title>
     <link rel="icon" href="favicon_io/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="styles.css">
+    <!-- Ajoute AVANT script.js -->
+    <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore-compat.js"></script>
+    <script>
+      const firebaseConfig = {
+        apiKey: "AIzaSyA7d9_mdzbQBtY4oGU-UwdGYHfDTep99bU",
+        authDomain: "english-vocab-2025.firebaseapp.com",
+        projectId: "english-vocab-2025",
+        storageBucket: "english-vocab-2025.firebasestorage.app",
+        messagingSenderId: "177795645831",
+        appId: "1:177795645831:web:2fd29ca34086d018f35322"
+      };
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.firestore();
+    </script>
 </head>
 <body>
     <div class="container">

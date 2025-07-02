@@ -6,7 +6,6 @@
     <title>Mots Appris</title>
     <link rel="icon" href="favicon_io/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="styles.css">
-    <!-- Ajoute AVANT script.js -->
     <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore-compat.js"></script>
     <script>
@@ -23,13 +22,19 @@
     </script>
 </head>
 <body>
-    <button id="define-vocab-button2" class="top-right-button">Définir le vocabulaire</button>
-    <button id="learn-vocab-button" class="top-right-button">Apprendre le vocabulaire</button>
     <div class="container2">
-        <h1>Mots Appris</h1>
-        <p id="learned-count"></p> <!-- Ajouté pour afficher le nombre de mots appris -->
-        <ul id="learned-words"></ul>
-        <button id="clear-learned-words-button" style="margin-top: 20px;">Vider la liste des mots appris</button>
+        <header>
+            <nav style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 38px;">
+                <button id="define-vocab-button2" class="top-left-button">Définir le vocabulaire</button>
+                <button id="learn-vocab-button" class="top-right-button">Apprendre le vocabulaire</button>
+            </nav>
+            <h1>Mots Appris</h1>
+        </header>
+        <main>
+            <p id="learned-count"></p>
+            <ul id="learned-words"></ul>
+            <button id="clear-learned-words-button" style="margin-top: 20px;">Vider la liste des mots appris</button>
+        </main>
     </div>
     <script src="script.js"></script>
 </body>

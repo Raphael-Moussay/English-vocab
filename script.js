@@ -103,7 +103,7 @@ async function handleVocabInput() {
     await renderListSelection();
 }
 
-// Affichage des listes à cocher
+// Affichage des listes à cocher avec bouton suppression
 async function renderListSelection() {
     const lists = await loadVocabularyLists();
     const container = document.getElementById('list-selection');
@@ -115,12 +115,37 @@ async function renderListSelection() {
     container.innerHTML = "<strong>Choisissez les listes à travailler :</strong><br>";
     lists.forEach((list, idx) => {
         container.innerHTML += `
-            <label>
-                <input type="checkbox" class="list-checkbox" value="${idx}" checked>
-                ${list.title}
-            </label><br>
-        `;
+    <label>
+        <input type="checkbox" class="list-checkbox" value="${idx}" checked>
+        ${list.title}
+    </label>
+    <button class="delete-list-btn" data-idx="${idx}" title="Supprimer la liste">🗑️</button>
+    <br>
+`;
     });
+
+    // Ajoute les listeners pour les boutons de suppression
+    document.querySelectorAll('.delete-list-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const idx = parseInt(btn.getAttribute('data-idx'));
+            const confirmDelete = confirm("Êtes-vous sûr de vouloir supprimer cette liste ?");
+            if (!confirmDelete) return;
+            await deleteVocabularyListByIndex(idx);
+            await renderListSelection();
+            await loadVocabulary();
+            getRandomWord();
+        });
+    });
+}
+
+// Fonction pour supprimer une liste par son index (Firestore)
+async function deleteVocabularyListByIndex(idx) {
+    const snapshot = await db.collection("vocabLists").get();
+    const doc = snapshot.docs[idx];
+    if (doc) {
+        await db.collection("vocabLists").doc(doc.id).delete();
+    }
 }
 
 // Récupère tous les mots des listes cochées

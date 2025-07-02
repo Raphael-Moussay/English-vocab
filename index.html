@@ -6,7 +6,6 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" href="favicon_io/favicon.ico">
     <title>Apprendre le Vocabulaire</title>
-    <!-- Ajoute AVANT script.js -->
     <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore-compat.js"></script>
     <script>
@@ -25,11 +24,11 @@
 <body>
     <div class="container">
         <header>
-            <h1>Apprendre le Vocabulaire</h1>
-            <nav>
-                <button id="define-vocab-button" class="top-right-button">Définir le Vocabulaire</button>
+            <nav style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 38px;">
+                <button id="define-vocab-button" class="top-left-button">Définir le Vocabulaire</button>
                 <button id="learned-words-button" class="top-right-button">Mots Appris</button>
             </nav>
+            <h1>Apprendre le Vocabulaire</h1>
         </header>
         <main>
             <div id="word-container">

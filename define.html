@@ -6,7 +6,6 @@
     <title>Définir le Vocabulaire</title>
     <link rel="icon" href="favicon_io/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="styles.css">
-    <!-- Ajoute AVANT script.js -->
     <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore-compat.js"></script>
     <script>
@@ -24,13 +23,18 @@
 </head>
 <body>
     <div class="container">
-        <button id="learn-vocab-button" class="top-right-button">Apprendre le vocabulaire</button>
-        <button id="learned-words-button" class="top-right-button">Mots Appris</button>
-        <h1>Définir le Vocabulaire</h1>
-        <!-- Champ pour le titre de la liste de vocabulaire -->
-        <input type="text" id="vocab-title" placeholder="Titre de la liste" style="margin-bottom:10px;">
-        <textarea id="vocab-input" rows="10" cols="50" placeholder="Entrez le vocabulaire sous la forme: Mot = traduction"></textarea>
-        <button id="save-vocab-button">Enregistrer le vocabulaire</button>
+        <header>
+            <nav style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 38px;">
+                <button id="learn-vocab-button" class="top-left-button">Apprendre le vocabulaire</button>
+                <button id="learned-words-button" class="top-right-button">Mots Appris</button>
+            </nav>
+            <h1>Définir le Vocabulaire</h1>
+        </header>
+        <main>
+            <input type="text" id="vocab-title" placeholder="Titre de la liste" style="margin-bottom:10px;">
+            <textarea id="vocab-input" rows="10" cols="50" placeholder="Entrez le vocabulaire sous la forme: Mot = traduction"></textarea>
+            <button id="save-vocab-button">Enregistrer le vocabulaire</button>
+        </main>
     </div>
     <script src="script.js"></script>
 </body>

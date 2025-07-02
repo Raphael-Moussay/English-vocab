@@ -1,5 +1,6 @@
 let vocabulary = [];
 let learnedWords = [];
+let selectedLists = [];
 
 function loadVocabulary() {
     const storedVocabulary = localStorage.getItem('vocabulary');
@@ -7,11 +8,10 @@ function loadVocabulary() {
         vocabulary = JSON.parse(storedVocabulary);
     } else {
         vocabulary = [
-            {english: "apple", french: "pomme"},
-            {english: "dog", french: "chien"},
-            {english: "house", french: "maison"},
-            {english: "car", french: "voiture"},
-            {english: "tree", french: "arbre"}
+            { title: "Fruits", words: [{english: "apple", french: "pomme"}, {english: "banana", french: "banane"}] },
+            { title: "Animaux", words: [{english: "dog", french: "chien"}, {english: "cat", french: "chat"}] },
+            { title: "Objets", words: [{english: "house", french: "maison"}, {english: "car", french: "voiture"}] },
+            { title: "Nature", words: [{english: "tree", french: "arbre"}, {english: "flower", french: "fleur"}] }
         ];
     }
 }
@@ -33,6 +33,7 @@ function saveLearnedWords() {
 }
 
 function getFilteredVocabulary() {
+    // Ici, vocabulary est déjà un tableau de mots plats
     return vocabulary.filter(word => !learnedWords.find(learnedWord => learnedWord.english === word.english));
 }
 
@@ -47,6 +48,8 @@ function getRandomWord() {
         return;
     }
     const currentWord = filteredVocabulary[Math.floor(Math.random() * filteredVocabulary.length)];
+    // On stocke le mot courant pour la validation
+    window.currentWord = currentWord;
     document.getElementById('word').innerText = currentWord.french;
     document.getElementById('result').innerText = "";
     document.getElementById('translation').value = "";
@@ -57,8 +60,8 @@ function getRandomWord() {
 
 function validateTranslation() {
     const userTranslation = document.getElementById('translation').value.trim().toLowerCase();
-    const wordElement = document.getElementById('word').innerText;
-    const currentWord = vocabulary.find(word => word.french === wordElement);
+    const currentWord = window.currentWord;
+    if (!currentWord) return;
     const correctTranslation = currentWord.english;
     const resultElement = document.getElementById('result');
 
@@ -85,14 +88,38 @@ function speakWord(word) {
     window.speechSynthesis.speak(utterance);
 }
 
+function loadVocabularyLists() {
+    const stored = localStorage.getItem('vocabularyLists');
+    if (stored) {
+        return JSON.parse(stored);
+    }
+    return [];
+}
+
+function saveVocabularyLists(lists) {
+    localStorage.setItem('vocabularyLists', JSON.stringify(lists));
+}
+
 function handleVocabInput() {
+    const title = document.getElementById('vocab-title').value.trim();
     const vocabInput = document.getElementById('vocab-input').value.trim();
+    if (!title || !vocabInput) {
+        alert("Veuillez entrer un titre et du vocabulaire.");
+        return;
+    }
     const lines = vocabInput.split('\n');
-    const newVocabulary = lines.map(line => {
+    const words = lines.map(line => {
         const [english, french] = line.split('=').map(word => word.trim());
         return {english, french};
-    });
-    saveVocabulary(newVocabulary);
+    }).filter(w => w.english && w.french);
+
+    let lists = loadVocabularyLists();
+    lists.push({ title, words });
+    saveVocabularyLists(lists);
+
+    document.getElementById('vocab-title').value = '';
+    document.getElementById('vocab-input').value = '';
+    alert("Liste enregistrée !");
 }
 
 function displayLearnedWords() {
@@ -105,6 +132,40 @@ function clearLearnedWords() {
     learnedWords = [];
     saveLearnedWords();
     displayLearnedWords();
+}
+
+function renderListSelection() {
+    const lists = loadVocabularyLists();
+    const container = document.getElementById('list-selection');
+    if (!container) return;
+    if (lists.length === 0) {
+        container.innerHTML = "<em>Aucune liste enregistrée.</em>";
+        return;
+    }
+    container.innerHTML = "<strong>Choisissez les listes à travailler :</strong><br>";
+    lists.forEach((list, idx) => {
+        container.innerHTML += `
+            <label>
+                <input type="checkbox" class="list-checkbox" value="${idx}" checked>
+                ${list.title}
+            </label><br>
+        `;
+    });
+}
+
+function getSelectedVocabulary() {
+    const lists = loadVocabularyLists();
+    const checked = Array.from(document.querySelectorAll('.list-checkbox:checked')).map(cb => parseInt(cb.value));
+    let words = [];
+    checked.forEach(idx => {
+        if (lists[idx]) words = words.concat(lists[idx].words);
+    });
+    return words;
+}
+
+// Remplace loadVocabulary et getFilteredVocabulary :
+function loadVocabulary() {
+    vocabulary = getSelectedVocabulary();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -135,10 +196,20 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('save-vocab-button').addEventListener('click', handleVocabInput);
     }
 
-    if (document.getElementById('validate-button')) {
+    if (document.getElementById('list-selection')) {
+        renderListSelection();
+        // Charger le vocabulaire et un mot APRES avoir affiché les cases à cocher
         loadVocabulary();
         loadLearnedWords();
         getRandomWord();
+
+        document.getElementById('list-selection').addEventListener('change', () => {
+            loadVocabulary();
+            getRandomWord();
+        });
+    }
+
+    if (document.getElementById('validate-button')) {
         document.getElementById('validate-button').addEventListener('click', validateTranslation);
         document.getElementById('next-button').addEventListener('click', getRandomWord);
 

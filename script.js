@@ -1,15 +1,40 @@
 let vocabulary = [];
 let learnedWords = [];
+let user = null;
 
-// Gestion des mots appris (toujours en local)
-function loadLearnedWords() {
-    const storedLearnedWords = localStorage.getItem('learnedWords');
-    if (storedLearnedWords) {
-        learnedWords = JSON.parse(storedLearnedWords);
+// --- Gestion des mots appris par utilisateur (Firestore) ---
+async function loadLearnedWordsFromFirestore() {
+    if (!user) return [];
+    const snap = await db.collection('learnedWords').doc(user.uid).get();
+    return snap.exists ? snap.data().words || [] : [];
+}
+async function saveLearnedWordsToFirestore(words) {
+    if (!user) return;
+    await db.collection('learnedWords').doc(user.uid).set({ words });
+}
+
+// Surcharge les fonctions locales pour synchroniser avec Firestore
+async function loadLearnedWords() {
+    if (!user) {
+        const storedLearnedWords = localStorage.getItem('learnedWords');
+        learnedWords = storedLearnedWords ? JSON.parse(storedLearnedWords) : [];
+    } else {
+        learnedWords = await loadLearnedWordsFromFirestore();
+        localStorage.setItem('learnedWords', JSON.stringify(learnedWords));
     }
 }
-function saveLearnedWords() {
+async function saveLearnedWords() {
     localStorage.setItem('learnedWords', JSON.stringify(learnedWords));
+    if (user) await saveLearnedWordsToFirestore(learnedWords);
+}
+
+// Nettoie les mots appris qui ne sont plus dans les listes sélectionnées
+async function cleanLearnedWordsAfterListDelete() {
+    // Récupère tous les mots encore présents dans les listes
+    await loadVocabulary();
+    learnedWords = learnedWords.filter(word => vocabulary.find(w => w.english === word.english));
+    await saveLearnedWords();
+    if (document.getElementById('learned-words')) displayLearnedWords();
 }
 
 // Filtrage des mots non appris
@@ -70,19 +95,84 @@ function speakWord(word) {
     window.speechSynthesis.speak(utterance);
 }
 
-// Firestore : charger toutes les listes
-async function loadVocabularyLists() {
-    const snapshot = await db.collection("vocabLists").get();
-    return snapshot.docs.map(doc => doc.data());
+// Authentification Google
+async function signInWithGoogle() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    try {
+        const result = await firebase.auth().signInWithPopup(provider);
+        user = result.user;
+        updateAuthUI();
+        await renderListSelection();
+        await loadVocabulary();
+        getRandomWord();
+    } catch (error) {
+        alert("Erreur de connexion : " + error.message);
+    }
 }
 
-// Firestore : sauvegarder une liste
+async function signOut() {
+    await firebase.auth().signOut();
+    user = null;
+    localStorage.removeItem('learnedWords'); // Suppression des mots appris du localStorage à la déconnexion
+    updateAuthUI();
+    await renderListSelection();
+    await loadVocabulary();
+    getRandomWord();
+}
+
+function updateAuthUI() {
+    // On place le bouton dans le nav à côté des autres onglets
+    let nav = document.querySelector('header nav');
+    if (!nav) return;
+    let authBtn = document.getElementById('auth-btn');
+    if (authBtn) authBtn.remove();
+    // S'assurer que le bouton est toujours visible
+    const btn = document.createElement('button');
+    btn.id = 'auth-btn';
+    btn.className = 'top-right-button';
+    btn.style.display = 'inline-block';
+    if (user) {
+        btn.textContent = 'Déconnexion';
+        btn.addEventListener('click', signOut);
+    } else {
+        btn.textContent = 'Connexion Google';
+        btn.addEventListener('click', signInWithGoogle);
+    }
+    nav.appendChild(btn);
+}
+
+// Firestore : charger toutes les listes de l'utilisateur connecté
+async function loadVocabularyLists() {
+    if (!user) return [];
+    const snapshot = await db.collection("vocabLists")
+        .where("uid", "==", user.uid)
+        .get();
+    return snapshot.docs.map(doc => ({...doc.data(), id: doc.id}));
+}
+
+// Firestore : sauvegarder une liste pour l'utilisateur connecté
 async function saveVocabularyList(list) {
-    await db.collection("vocabLists").add(list);
+    if (!user) return;
+    await db.collection("vocabLists").add({ ...list, uid: user.uid });
+}
+
+// Fonction pour supprimer une liste par son index (Firestore)
+async function deleteVocabularyListByIndex(idx) {
+    if (!user) return;
+    const lists = await loadVocabularyLists();
+    const list = lists[idx];
+    if (list && list.id) {
+        await db.collection("vocabLists").doc(list.id).delete();
+        await cleanLearnedWordsAfterListDelete();
+    }
 }
 
 // Ajout d'une nouvelle liste depuis le formulaire
 async function handleVocabInput() {
+    if (!user) {
+        alert("Vous devez être connecté avec Google pour enregistrer une liste.");
+        return;
+    }
     const title = document.getElementById('vocab-title').value.trim();
     const vocabInput = document.getElementById('vocab-input').value.trim();
     if (!title || !vocabInput) {
@@ -125,27 +215,20 @@ async function renderListSelection() {
     });
 
     // Ajoute les listeners pour les boutons de suppression
-    document.querySelectorAll('.delete-list-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            const idx = parseInt(btn.getAttribute('data-idx'));
-            const confirmDelete = confirm("Êtes-vous sûr de vouloir supprimer cette liste ?");
-            if (!confirmDelete) return;
-            await deleteVocabularyListByIndex(idx);
-            await renderListSelection();
-            await loadVocabulary();
-            getRandomWord();
+    setTimeout(() => {
+        document.querySelectorAll('.delete-list-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const idx = parseInt(btn.getAttribute('data-idx'));
+                const confirmDelete = confirm("Êtes-vous sûr de vouloir supprimer cette liste ?");
+                if (!confirmDelete) return;
+                await deleteVocabularyListByIndex(idx);
+                await renderListSelection();
+                await loadVocabulary();
+                getRandomWord();
+            });
         });
-    });
-}
-
-// Fonction pour supprimer une liste par son index (Firestore)
-async function deleteVocabularyListByIndex(idx) {
-    const snapshot = await db.collection("vocabLists").get();
-    const doc = snapshot.docs[idx];
-    if (doc) {
-        await db.collection("vocabLists").doc(doc.id).delete();
-    }
+    }, 0);
 }
 
 // Récupère tous les mots des listes cochées
@@ -221,6 +304,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (document.getElementById('clear-learned-words-button')) {
         document.getElementById('clear-learned-words-button').addEventListener('click', clearLearnedWords);
     }
+
+    // Auth UI
+    let header = document.querySelector('header');
+    if (header && !document.getElementById('auth-container')) {
+        const div = document.createElement('div');
+        div.id = 'auth-container';
+        div.style = 'position:absolute;top:10px;right:10px;z-index:10;';
+        header.appendChild(div);
+    }
+    firebase.auth().onAuthStateChanged(async (u) => {
+        user = u;
+        await loadLearnedWords();
+        updateAuthUI();
+        await renderListSelection();
+        await loadVocabulary();
+        getRandomWord();
+        if (document.getElementById('learned-words')) displayLearnedWords();
+    });
 });
 
 // (Optionnel) Fonction pour afficher les mots appris sur la page learned.html
